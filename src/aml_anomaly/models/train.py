@@ -28,6 +28,8 @@ from aml_anomaly.models.dimensionality import preprocess_for_training
 from aml_anomaly.models.ensemble import build_anomaly_scores
 from aml_anomaly.models.isolation_forest import run_isolation_forest
 from aml_anomaly.models.lof import run_lof
+from aml_anomaly.reporting.export import export_analyst_report, export_anomaly_scores
+from aml_anomaly.reporting.flags import load_population_stats
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,7 @@ def train(
     accounts: pd.DataFrame,
     securities: pd.DataFrame,
     models_dir: Path = MODELS_DIR,
+    outputs_dir: Path = Path("outputs"),
     contamination: float = CONTAMINATION,
 ) -> pd.DataFrame:
     """Run the full training pipeline and save all fitted objects to models_dir.
@@ -104,6 +107,19 @@ def train(
     print("\nTraining complete.")
     print(f"  Accounts scored: {len(scores):,}")
     print(f"  Flagged (top {contamination:.0%}): {flagged}")
+
+    print("\nGenerating analyst reports...")
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    pop_stats = load_population_stats(models_dir)
+    export_anomaly_scores(scores, features, outputs_dir / "anomaly_scores.csv")
+    export_analyst_report(
+        scores,
+        features,
+        trades,
+        accounts,
+        pop_stats,
+        outputs_dir / "flagged_accounts.xlsx",
+    )
 
     return scores
 
