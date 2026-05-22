@@ -28,7 +28,7 @@ def _ensure_dirs() -> None:
         d.mkdir(parents=True, exist_ok=True)
 
 
-def run_data_generation() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def run_data_generation() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     print("\n[1/2] Generating synthetic data...")
 
     securities = generate_securities(n=200, random_state=RANDOM_STATE)
@@ -49,10 +49,13 @@ def run_data_generation() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 def run_train_holdout_split(trades: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     print("\n[2/2] Splitting trades into training and holdout sets...")
 
-    trades_sorted = trades.sort_values("trade_date").reset_index(drop=True)
-    split_idx = int(len(trades_sorted) * 0.80)
-    train = trades_sorted.iloc[:split_idx]
-    holdout = trades_sorted.iloc[split_idx:]
+    # Random split so anomaly trades (concentrated in recent dates) appear in both sets.
+    # A time-based split would push all recently-injected anomalies into holdout only,
+    # leaving the training feature matrix with no anomalous behavior to learn from.
+    trades_shuffled = trades.sample(frac=1, random_state=RANDOM_STATE).reset_index(drop=True)
+    split_idx = int(len(trades_shuffled) * 0.80)
+    train = trades_shuffled.iloc[:split_idx]
+    holdout = trades_shuffled.iloc[split_idx:]
 
     train.to_csv(RAW_DIR / "trades.csv", index=False)
     holdout.to_csv(HOLDOUT_DIR / "new_trades.csv", index=False)
