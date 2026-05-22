@@ -1,6 +1,30 @@
 # AML Stock Trading Anomaly Detection
 
-An end-to-end Python framework for AML surveillance of stock trading activity. It generates realistic synthetic trade data, engineers behavioral features, trains two complementary anomaly detection models, and produces analyst-ready reports — including plain-English explanations for every flagged account.
+An end-to-end Python framework for AML surveillance of stock trading activity. It engineers behavioral features from trade-level data, trains two complementary unsupervised anomaly detection models, and produces analyst-ready reports — including plain-English explanations for every flagged account.
+
+---
+
+## Two ways to use this repo
+
+### Path 1 — Full demo (learners and evaluators)
+
+Run the complete pipeline from scratch using synthetic data. No external data required. Generates 2,000 accounts, 200 securities, and 133,000 trades with known anomaly patterns injected, then runs the full model and validates results.
+
+```bash
+uv run python run_all.py
+```
+
+Then open the Jupyter notebooks in order (`01` through `06`) to explore the data, understand the models, and review the results.
+
+**Start here if:** you want to understand how the system works, evaluate whether it fits your use case, or learn the methodology before applying it to real data.
+
+### Path 2 — Bring your own data (practitioners)
+
+Skip the synthetic data entirely. Plug in your own accounts, securities, and trade data, adapt the feature engineering modules for your data schema, and run the modeling and scoring pipeline directly.
+
+**See [`USING_YOUR_OWN_DATA.md`](USING_YOUR_OWN_DATA.md) for the full guide.**
+
+**Start here if:** you have real brokerage data and want to deploy the anomaly detection framework against it.
 
 ---
 
@@ -290,6 +314,35 @@ All three layers are exported to a multi-tab Excel workbook (`outputs/flagged_ac
 | `same_day_reversal_count` | Times the account bought and sold the same stock on the same day |
 | `circular_trade_flag` | Whether the account appears in a circular trading chain (A→B→C→A) |
 | `shared_counterparty_ticker_count` | Tickers where the account repeatedly trades with the same counterparty |
+
+---
+
+## How this works in production
+
+### Unit of analysis: the account
+
+This framework detects **anomalous accounts**, not anomalous individual transactions. Each account is scored based on the aggregate behavioral fingerprint of all its transactions — velocity, concentration, self-baseline deviation, and counterparty patterns computed over rolling windows.
+
+This is the right level for AML in stock trading. Suspicious patterns like wash trading, smurfing, and velocity spikes only become visible when you look at an account's behavior over time. A single round-value trade proves nothing. Eighty percent of an account's trades being round values is a signal.
+
+When an account is flagged, the report surfaces the specific transactions that drove the anomalous features — so the analyst understands both the pattern and the evidence.
+
+### Operational flow: nightly batch scoring
+
+The intended production cadence is a nightly batch run:
+
+1. At end of trading day, new trades are appended to the account history
+2. Rolling features are recomputed for all accounts that traded that day
+3. All accounts are scored against the already-fitted model (no retraining)
+4. Flagged accounts are surfaced for analyst review the next morning
+
+The model is retrained periodically (weekly or monthly) as the population evolves — not on every batch run. The `train.py` / `score.py` separation in the codebase reflects this design directly.
+
+### New accounts
+
+Accounts with limited trade history are a known edge case. Features that rely on self-baseline comparisons (`value_zscore_vs_self`, `velocity_ratio_7d_vs_30d`) default to zero when there is insufficient history, which means new accounts may be under-scored on those dimensions. Features that work from individual transaction characteristics (off-hours percentage, round-value rate, concentration) are effective from the first few trades.
+
+In production, new accounts under 90 days old are typically handled with a separate lower flagging threshold or a rule-based overlay in addition to the model score.
 
 ---
 
