@@ -2,7 +2,7 @@
 
 ## What this project is
 
-An end-to-end Python framework for AML surveillance of stock trading activity. It generates synthetic trade data, engineers behavioral features, trains unsupervised anomaly detection models (Isolation Forest + LOF), and produces plain-English analyst reports.
+An end-to-end Python framework for AML surveillance of stock trading activity. It generates synthetic trade data, engineers behavioral features, trains unsupervised anomaly detection models (Isolation Forest + Local Outlier Factor (LOF)), and produces plain-English analyst reports.
 
 See [README.md](README.md) for full project documentation including model explanations.
 

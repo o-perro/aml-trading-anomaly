@@ -100,7 +100,7 @@ This executes every stage in order:
 1. Generate synthetic data (accounts → securities → trades)
 2. Set aside 20% of trades as a holdout set (never seen during training)
 3. Engineer features for the training population
-4. Fit the StandardScaler, PCA, Isolation Forest, and LOF — save all to `models/`
+4. Fit the StandardScaler, PCA, Isolation Forest, and Local Outlier Factor (LOF) — save all to `models/`
 5. Score the holdout trades against the fitted models (no retraining)
 6. Export results to `outputs/`
 

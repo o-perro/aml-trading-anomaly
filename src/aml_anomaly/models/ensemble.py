@@ -1,1 +1,1 @@
-"""Combine Isolation Forest and LOF scores into a composite anomaly score."""
+"""Combine Isolation Forest and Local Outlier Factor (LOF) scores into a composite anomaly score."""
