@@ -22,12 +22,16 @@ data/raw/*
 data/features/*
 data/holdout/*
 outputs/*
+notebooks/outputs/*
 models/*.pkl
-models/population_stats.json
+models/*.json
 !data/raw/.gitkeep
 !data/features/.gitkeep
 !data/holdout/.gitkeep
 !outputs/.gitkeep
+
+# Claude Code local settings (machine-specific)
+.claude/
 
 # Notebooks
 .ipynb_checkpoints/
