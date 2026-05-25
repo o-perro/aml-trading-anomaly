@@ -26,7 +26,14 @@ Want to plug in their own accounts, securities, and transaction data. They skip 
 ## Unit of analysis and operational context
 
 - **Unit of analysis is the account**, not the individual transaction. Transactions are aggregated into account-level behavioral features over rolling windows (7-day, 30-day).
-- **Production cadence is nightly batch scoring** — all accounts that traded that day get re-scored against the already-fitted model. The model is retrained periodically (weekly or monthly), not on every scoring run.
+- **Production cadence is nightly batch scoring.** The correct production flow is:
+  1. All accounts with at least one transaction today are brought into scope
+  2. For each in-scope account, pull the last **6 months (180 days)** of transaction history
+  3. Recompute rolling features for those accounts
+  4. Score against the already-fitted model — no retraining
+  5. Flagged accounts surface for analyst review the next morning
+- **6-month lookback window** — 30 days is the hard minimum for features to compute correctly (longest rolling window used). 6 months is the production standard: it gives `value_zscore_vs_self` and `velocity_zscore_vs_self` a meaningful self-baseline and ensures low-frequency accounts have enough history.
+- **Random holdout split is demo-only.** The 20% random holdout in `run_all.py` exists for training validation, not as a production analog. In production, always pull a time-contiguous lookback window per account — a random sample destroys temporal signals like `velocity_ratio_7d_vs_30d` (confirmed: 0% recall on `velocity_spike` pattern when random-sampled).
 - **New accounts** with fewer than 30 days of history will have sparse self-baseline features (`value_zscore_vs_self`, `velocity_ratio_7d_vs_30d`). These default to 0. New accounts are a known limitation — consider a rule-based overlay or lower threshold for accounts under 90 days old.
 
 ---

@@ -242,7 +242,7 @@ This distinction is critical for production-representative behavior.
 
 **Scoring mode** (`score.py`) — loads all fitted objects and scores a new batch of accounts *without retraining*. This is the production flow: new trades come in, get featurized using the same pipeline, and are scored against the already-fitted model. The model's definition of "normal" never changes based on incoming data.
 
-The holdout dataset (20% of trades, set aside before training) is used to test the scoring pipeline end-to-end.
+The holdout dataset (20% of trades, set aside before training) is used to test the scoring pipeline end-to-end. Note that this is a **random split**, which is correct for demo purposes (a time-based split would push all injected anomalies into the holdout, leaving training with no anomalous behavior to learn from). However, the random split is not representative of production scoring — in production, always use a time-contiguous lookback window per account rather than a random sample.
 
 ---
 
@@ -331,12 +331,17 @@ When an account is flagged, the report surfaces the specific transactions that d
 
 The intended production cadence is a nightly batch run:
 
-1. At end of trading day, new trades are appended to the account history
-2. Rolling features are recomputed for all accounts that traded that day
-3. All accounts are scored against the already-fitted model (no retraining)
-4. Flagged accounts are surfaced for analyst review the next morning
+1. All accounts with at least one transaction that day are brought into scope
+2. For each in-scope account, retrieve the last **6 months (180 days)** of transaction history
+3. Recompute rolling features for those accounts using the saved feature engineering pipeline
+4. Score against the already-fitted model — no retraining
+5. Flagged accounts are surfaced for analyst review the next morning
 
 The model is retrained periodically (weekly or monthly) as the population evolves — not on every batch run. The `train.py` / `score.py` separation in the codebase reflects this design directly.
+
+**Why 6 months?** The feature engineering uses 30-day rolling windows as the longest computation window, but the self-baseline features (`value_zscore_vs_self`, `velocity_zscore_vs_self`) use everything older than 30 days as a historical reference. 30 days is the hard minimum for features to be non-null; 6 months provides a robust self-baseline and ensures that low-frequency accounts have enough history to establish a normal trading pattern. For scoring, always pull a time-contiguous lookback window — a random sample of transactions destroys temporal signals like `velocity_ratio_7d_vs_30d`.
+
+**Database consideration:** In production, this query pattern benefits from a composite index on `(account_id, trade_date)`. The query is: all trades where `trade_date >= today - 180 days AND account_id IN (today's active accounts)`.
 
 ### New accounts
 
