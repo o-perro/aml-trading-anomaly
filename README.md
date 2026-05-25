@@ -372,6 +372,27 @@ uv run pytest --cov=src --cov-report=term-missing
 
 ---
 
+## Known gaps and natural next steps
+
+Two areas identified during development that are not yet implemented but represent clear next steps for anyone extending this framework:
+
+**1. IF vs. LOF overlap analysis**
+
+In the demo dataset, Isolation Forest achieves 68% recall and 64% precision standalone, while Local Outlier Factor (LOF) achieves only 29% recall and 27% precision. The ensemble (65% recall, 61% precision) is marginally below IF alone on aggregate metrics.
+
+Before adjusting or removing LOF, the right question to answer is: are IF and LOF flagging the *same* accounts, or *different* ones? If LOF catches injected anomaly accounts that IF misses entirely, it earns its 40% weight even with lower aggregate numbers. The overlap analysis would compare the specific accounts flagged by each model and check whether the union of both models catches more anomalies than IF alone.
+
+**2. Rule-based overlay for missed patterns**
+
+The ML model achieves 0% recall on two injected patterns in the holdout set:
+
+- `velocity_spike` — the random holdout split destroys the temporal signal. In production with a 6-month time-contiguous lookback, this pattern would be detectable. No code change needed; the feature exists.
+- `illiquid_concentration` — a subtle proportional signal that doesn't stand out as a global outlier. A hard rule-based threshold (e.g., flag any account where >50% of monthly volume is in a single illiquid stock) would catch these cases regardless of the ML score.
+
+A production deployment would pair the ML model with a lightweight rule engine for patterns like these — not to replace the model, but to catch what it structurally cannot see.
+
+---
+
 ## License
 
 MIT
