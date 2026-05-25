@@ -83,13 +83,17 @@ This fits the scaler, PCA, Isolation Forest, and Local Outlier Factor (LOF), and
 
 ### Step 5 — Score new data on a schedule
 
-For production, run scoring on a schedule (nightly is typical) against new incoming trades:
+For production, run scoring on a schedule (nightly is typical). The correct flow is:
+
+1. Identify all accounts with at least one transaction today
+2. For each in-scope account, pull the last **6 months (180 days)** of transaction history
+3. Pass that history through the feature engineering pipeline and score
 
 ```python
 from aml_anomaly.models.score import score_trades
 
 scores = score_trades(
-    trades=new_trades_df,
+    trades=last_180_days_df,  # 6-month lookback per account — not a random sample
     accounts=accounts_df,
     securities=securities_df,
     models_dir=Path("models/"),
@@ -103,6 +107,8 @@ uv run python -m aml_anomaly.models.score \
     --trades data/new_trades.csv \
     --output outputs/scored_accounts.csv
 ```
+
+**Why 6 months?** The feature engineering uses 30-day rolling windows, but self-baseline features (`value_zscore_vs_self`, `velocity_zscore_vs_self`) compare recent activity against everything older than 30 days. 30 days is the hard minimum for features to be non-null; 6 months gives those self-baseline features a meaningful historical reference and ensures low-frequency accounts have enough history. Always pull a **time-contiguous** window — a random sample of transactions destroys temporal signals like `velocity_ratio_7d_vs_30d`.
 
 The scoring pipeline loads the fitted model objects and applies them to the new data without retraining. The model's definition of "normal" stays constant between scoring runs. Retrain the model periodically (weekly or monthly) as your account population evolves.
 
@@ -127,6 +133,8 @@ The notebooks are organized around four questions:
 - **Notebook 06** — what do the top-flagged accounts look like? Do the narratives make sense to an analyst?
 
 If you have a labeled dataset (known SAR filings, confirmed cases, prior investigations), you can use it in notebooks 04 and 06 as a ground-truth validation — the same way we use the injected anomaly accounts in the demo.
+
+**Notebook 06 is a developer and validation tool**, not a production analyst interface. In a real deployment, the scored output feeds into a purpose-built case management system — a commercial AML platform, an internal web application, or a BI tool like Tableau or Power BI. The Excel export (`outputs/flagged_accounts.xlsx`) is the pragmatic bridge for teams without a downstream system yet in place.
 
 ---
 
